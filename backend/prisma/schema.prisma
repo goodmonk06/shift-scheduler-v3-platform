@@ -76,6 +76,9 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
+  notifications Notification[]
+  shiftNotes    ShiftNote[]
+
   @@index([tenantId])
   @@map("users")
 }
@@ -109,6 +112,9 @@ model Facility {
   shiftPatterns   ShiftPattern[]
   shiftAssignments ShiftAssignment[]
   constraintRules ConstraintRule[]
+  departments     Department[]
+  shiftTemplates  ShiftTemplate[]
+  timeOffPolicies TimeOffPolicy[]
 
   @@index([tenantId])
   @@map("facilities")
@@ -150,11 +156,18 @@ model Staff {
   updatedAt         DateTime         @updatedAt
 
   user              User?
+  departmentId      String?
+  department        Department?      @relation(fields: [departmentId], references: [id])
+
   shiftAssignments  ShiftAssignment[]
   leaveRequests     LeaveRequest[]
+  swapRequestsAsRequester ShiftSwapRequest[] @relation("SwapRequester")
+  swapRequestsAsTarget ShiftSwapRequest[] @relation("SwapTarget")
+  timeOffBalances   TimeOffBalance[]
 
   @@index([facilityId])
   @@index([tenantId])
+  @@index([departmentId])
   @@map("staff")
 }
 
@@ -232,6 +245,10 @@ model ShiftAssignment {
 
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  swapRequestsAsRequester ShiftSwapRequest[] @relation("SwapRequesterAssignment")
+  swapRequestsAsTarget ShiftSwapRequest[] @relation("SwapTargetAssignment")
+  notes           ShiftNote[]
 
   @@unique([staffId, date, patternId]) // 同じスタッフが同日同パターンに複数割当されない
   @@index([facilityId, date])
@@ -327,4 +344,287 @@ enum LeaveStatus {
   PENDING          // 承認待ち
   APPROVED         // 承認済み
   REJECTED         // 却下
+}
+
+// ============================================
+// Department (Phase 3)
+// ============================================
+
+model Department {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+
+  facilityId      String
+  facility        Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId        String
+
+  parentId        String?
+  parent          Department?      @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children        Department[]     @relation("DepartmentHierarchy")
+
+  managerId       String?
+
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  staff           Staff[]
+
+  @@index([facilityId])
+  @@index([tenantId])
+  @@index([parentId])
+  @@map("departments")
+}
+
+// ============================================
+// Shift Template (Phase 3)
+// ============================================
+
+model ShiftTemplate {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+
+  facilityId      String
+  facility        Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId        String
+
+  // テンプレート設定
+  recurrenceType  RecurrenceType   @default(WEEKLY)
+  config          Json             // 週間パターン、月間パターンなど
+
+  startDate       DateTime?        @db.Date
+  endDate         DateTime?        @db.Date
+
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([facilityId])
+  @@index([tenantId])
+  @@map("shift_templates")
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+// ============================================
+// Shift Swap Request (Phase 3)
+// ============================================
+
+model ShiftSwapRequest {
+  id                   String              @id @default(cuid())
+
+  requesterStaffId     String
+  requesterStaff       Staff               @relation("SwapRequester", fields: [requesterStaffId], references: [id], onDelete: Cascade)
+
+  requesterAssignmentId String
+  requesterAssignment   ShiftAssignment    @relation("SwapRequesterAssignment", fields: [requesterAssignmentId], references: [id])
+
+  targetStaffId        String?
+  targetStaff          Staff?              @relation("SwapTarget", fields: [targetStaffId], references: [id])
+
+  targetAssignmentId   String?
+  targetAssignment     ShiftAssignment?    @relation("SwapTargetAssignment", fields: [targetAssignmentId], references: [id])
+
+  tenantId             String
+
+  reason               String?
+  status               SwapStatus          @default(PENDING)
+
+  approvedBy           String?
+  approvedAt           DateTime?
+  rejectedReason       String?
+
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([requesterStaffId])
+  @@index([targetStaffId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("shift_swap_requests")
+}
+
+enum SwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// Notification (Phase 3)
+// ============================================
+
+model Notification {
+  id              String              @id @default(cuid())
+
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tenantId        String
+
+  type            NotificationType
+  title           String
+  message         String
+
+  data            Json?               // 追加データ
+
+  isRead          Boolean             @default(false)
+  readAt          DateTime?
+
+  createdAt       DateTime            @default(now())
+
+  @@index([userId, isRead])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  SHIFT_ASSIGNED
+  SHIFT_CHANGED
+  SHIFT_CANCELLED
+  SWAP_REQUESTED
+  SWAP_APPROVED
+  SWAP_REJECTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  SCHEDULE_PUBLISHED
+  SYSTEM_ALERT
+}
+
+// ============================================
+// Audit Log (Phase 3)
+// ============================================
+
+model AuditLog {
+  id              String           @id @default(cuid())
+
+  tenantId        String
+
+  userId          String?
+  userName        String?
+
+  action          AuditAction
+  entityType      String           // "Staff", "ShiftAssignment", etc.
+  entityId        String
+
+  changes         Json?            // Before/after values
+  metadata        Json?            // Additional context
+
+  ipAddress       String?
+  userAgent       String?
+
+  createdAt       DateTime         @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  DELETED
+  APPROVED
+  REJECTED
+  PUBLISHED
+  ARCHIVED
+}
+
+// ============================================
+// Shift Note (Phase 3)
+// ============================================
+
+model ShiftNote {
+  id              String           @id @default(cuid())
+
+  assignmentId    String
+  assignment      ShiftAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  authorId        String
+  author          User             @relation(fields: [authorId], references: [id])
+
+  tenantId        String
+
+  content         String
+  isInternal      Boolean          @default(false) // 内部メモか外部公開か
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([assignmentId])
+  @@index([tenantId])
+  @@map("shift_notes")
+}
+
+// ============================================
+// Time Off Policy (Phase 3)
+// ============================================
+
+model TimeOffPolicy {
+  id                    String           @id @default(cuid())
+  name                  String
+  description           String?
+
+  facilityId            String
+  facility              Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId              String
+
+  leaveType             LeaveType
+
+  // ポリシー設定
+  annualAllowance       Int              // 年間付与日数
+  accrualRate           Float?           // 月次付与率
+  carryoverLimit        Int?             // 繰越上限
+  requiresApproval      Boolean          @default(true)
+  minimumNoticeDays     Int              @default(7)
+
+  isActive              Boolean          @default(true)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  balances              TimeOffBalance[]
+
+  @@index([facilityId])
+  @@index([tenantId])
+  @@map("time_off_policies")
+}
+
+model TimeOffBalance {
+  id              String           @id @default(cuid())
+
+  staffId         String
+  staff           Staff            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  policyId        String
+  policy          TimeOffPolicy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  tenantId        String
+
+  year            Int
+  balance         Float            // 残日数
+  used            Float            @default(0)
+  accrued         Float            @default(0)
+  carriedOver     Float            @default(0)
+
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([staffId, policyId, year])
+  @@index([staffId])
+  @@index([tenantId])
+  @@map("time_off_balances")
 }
