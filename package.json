@@ -1,0 +1,21 @@
+{
+  "name": "shift-scheduler-v3-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant Shift Scheduling SaaS Platform",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "backend": "npm run start:dev --workspace=backend",
+    "frontend": "npm run dev --workspace=frontend",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down",
+    "db:reset": "npm run db:down && npm run db:up"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

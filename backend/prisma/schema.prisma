@@ -1,0 +1,330 @@
+// Shift Scheduler SaaS Platform - Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Tenant & User Management
+// ============================================
+
+model Tenant {
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique
+  plan              SubscriptionPlan   @default(TRIAL)
+  status            TenantStatus       @default(ACTIVE)
+
+  // Stripe関連
+  stripeCustomerId      String?        @unique
+  stripeSubscriptionId  String?        @unique
+  subscriptionStatus    SubscriptionStatus?
+  currentPeriodEnd      DateTime?
+
+  // プラン制限
+  maxFacilities     Int                @default(1)  // trial:1, standard:3, pro:unlimited
+  maxStaffPerFacility Int              @default(20) // trial:20, standard:50, pro:unlimited
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  users             User[]
+  facilities        Facility[]
+
+  @@map("tenants")
+}
+
+enum SubscriptionPlan {
+  TRIAL
+  STANDARD
+  PRO
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  INCOMPLETE
+  TRIALING
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          UserRole       @default(STAFF)
+
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // 関連するスタッフレコード（UserがStaffでもある場合）
+  staffId       String?        @unique
+  staff         Staff?         @relation(fields: [staffId], references: [id])
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN        // テナント管理者
+  MANAGER      // 施設管理者
+  STAFF        // 一般スタッフ
+}
+
+// ============================================
+// Facility & Staff Management
+// ============================================
+
+model Facility {
+  id              String           @id @default(cuid())
+  name            String
+  type            FacilityType
+
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // 設定
+  timezone        String           @default("Asia/Tokyo")
+  settings        Json?            // カスタム設定（営業時間など）
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  staff           Staff[]
+  shiftPatterns   ShiftPattern[]
+  shiftAssignments ShiftAssignment[]
+  constraintRules ConstraintRule[]
+
+  @@index([tenantId])
+  @@map("facilities")
+}
+
+enum FacilityType {
+  NURSING_HOME     // 介護施設
+  RESTAURANT       // 飲食店
+  RETAIL           // 小売
+  HOSPITAL         // 病院
+  OTHER            // その他
+}
+
+model Staff {
+  id                String           @id @default(cuid())
+  employeeNumber    String?          // 従業員番号
+  name              String
+  email             String?
+  phone             String?
+
+  facilityId        String
+  facility          Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId          String           // マルチテナント用
+
+  // 雇用情報
+  employmentType    EmploymentType   @default(FULL_TIME)
+  position          String?          // 役職
+  skills            String[]         // スキルタグ配列
+
+  // 勤務条件
+  maxHoursPerWeek   Int?             // 週最大勤務時間
+  maxDaysPerWeek    Int?             // 週最大勤務日数
+  preferredDays     Int[]            @default([]) // 希望勤務曜日 (0=日, 1=月, ...)
+
+  isActive          Boolean          @default(true)
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  user              User?
+  shiftAssignments  ShiftAssignment[]
+  leaveRequests     LeaveRequest[]
+
+  @@index([facilityId])
+  @@index([tenantId])
+  @@map("staff")
+}
+
+enum EmploymentType {
+  FULL_TIME        // 正社員
+  PART_TIME        // パート
+  CONTRACT         // 契約社員
+  TEMPORARY        // アルバイト
+}
+
+// ============================================
+// Shift Pattern Management
+// ============================================
+
+model ShiftPattern {
+  id              String           @id @default(cuid())
+  name            String           // 例: "早番", "日勤A", "夜勤入り"
+  shortName       String           // 例: "早", "日A", "夜入"
+  color           String           @default("#3b82f6") // UI表示用カラーコード
+
+  facilityId      String
+  facility        Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId        String           // マルチテナント用
+
+  // 勤務時間
+  startTime       String           // "09:00" 形式
+  endTime         String           // "17:00" 形式
+  breakMinutes    Int              @default(0) // 休憩時間（分）
+
+  // 必要人数（デフォルト）
+  requiredStaff   Int              @default(1)
+
+  // 必要スキル
+  requiredSkills  String[]         @default([])
+
+  sortOrder       Int              @default(0)  // 表示順
+  isActive        Boolean          @default(true)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  shiftAssignments ShiftAssignment[]
+
+  @@index([facilityId])
+  @@index([tenantId])
+  @@map("shift_patterns")
+}
+
+// ============================================
+// Shift Assignment (実際のシフト)
+// ============================================
+
+model ShiftAssignment {
+  id              String           @id @default(cuid())
+
+  facilityId      String
+  facility        Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId        String           // マルチテナント用
+
+  staffId         String
+  staff           Staff            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  patternId       String
+  pattern         ShiftPattern     @relation(fields: [patternId], references: [id])
+
+  date            DateTime         @db.Date
+
+  // ステータス
+  status          AssignmentStatus @default(CONFIRMED)
+
+  // メモ
+  note            String?
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([staffId, date, patternId]) // 同じスタッフが同日同パターンに複数割当されない
+  @@index([facilityId, date])
+  @@index([staffId])
+  @@index([tenantId])
+  @@map("shift_assignments")
+}
+
+enum AssignmentStatus {
+  DRAFT            // 下書き
+  CONFIRMED        // 確定
+  PUBLISHED        // 公開済み
+}
+
+// ============================================
+// Constraint Rules (制約ルール)
+// ============================================
+
+model ConstraintRule {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+
+  facilityId      String
+  facility        Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  tenantId        String           // マルチテナント用
+
+  // ルールタイプ
+  type            ConstraintType
+
+  // ルール設定（JSON）
+  // 例: { "maxConsecutiveDays": 5, "minRestHours": 11, etc. }
+  config          Json
+
+  priority        Int              @default(1) // 優先度 (1=高, 3=低)
+  isActive        Boolean          @default(true)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([facilityId])
+  @@index([tenantId])
+  @@map("constraint_rules")
+}
+
+enum ConstraintType {
+  MAX_CONSECUTIVE_DAYS     // 最大連続勤務日数
+  MIN_REST_HOURS           // 最小休憩時間
+  MAX_HOURS_PER_WEEK       // 週最大勤務時間
+  REQUIRED_STAFF_COUNT     // 必要人数
+  SKILL_REQUIREMENT        // スキル要件
+  PROHIBITED_PATTERN       // 禁止パターン
+  CUSTOM                   // カスタムルール
+}
+
+// ============================================
+// Leave Request (休暇申請)
+// ============================================
+
+model LeaveRequest {
+  id              String           @id @default(cuid())
+
+  staffId         String
+  staff           Staff            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  tenantId        String           // マルチテナント用
+
+  startDate       DateTime         @db.Date
+  endDate         DateTime         @db.Date
+
+  type            LeaveType        @default(PAID_LEAVE)
+  reason          String?
+
+  status          LeaveStatus      @default(PENDING)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([staffId])
+  @@index([tenantId])
+  @@map("leave_requests")
+}
+
+enum LeaveType {
+  PAID_LEAVE       // 有給休暇
+  SICK_LEAVE       // 病気休暇
+  PERSONAL_LEAVE   // 私用休暇
+  OTHER            // その他
+}
+
+enum LeaveStatus {
+  PENDING          // 承認待ち
+  APPROVED         // 承認済み
+  REJECTED         // 却下
+}
