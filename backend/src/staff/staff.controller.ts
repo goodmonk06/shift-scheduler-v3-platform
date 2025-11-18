@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } f
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
+import { UpdateStaffDto } from './dto/update-staff.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -38,8 +39,8 @@ export class StaffController {
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'Update staff' })
-  update(@Param('id') id: string, @CurrentTenant() tenantId: string, @Body() updateData: any) {
-    return this.staffService.update(id, tenantId, updateData);
+  update(@Param('id') id: string, @CurrentTenant() tenantId: string, @Body() updateStaffDto: UpdateStaffDto) {
+    return this.staffService.update(id, tenantId, updateStaffDto);
   }
 
   @Delete(':id')

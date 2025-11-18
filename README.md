@@ -1,106 +1,322 @@
-# Shift Scheduler v3 - SaaS Platform
+# Shift Scheduler v3 Platform
 
-汎用シフト管理SaaSプラットフォーム。マルチテナント対応で、介護施設・飲食店・小売など、様々な業種のシフト管理をサポートします。
+A production-ready, multi-tenant SaaS platform for shift scheduling. Built with NestJS, Next.js, and PostgreSQL.
 
-## 📋 目次
+## Overview
 
-- [特徴](#特徴)
-- [技術スタック](#技術スタック)
-- [アーキテクチャ](#アーキテクチャ)
-- [セットアップ](#セットアップ)
-- [使い方](#使い方)
-- [ディレクトリ構成](#ディレクトリ構成)
-- [v2からの移行](#v2からの移行)
+This platform enables organizations (nursing homes, restaurants, retail stores, etc.) to efficiently manage staff schedules, automate shift assignments, and handle leave requests. Each tenant operates in complete isolation with role-based access control (RBAC).
 
-## ✨ 特徴
+**Key Features:**
+- Multi-tenant architecture with complete data isolation
+- Role-based access control (Admin, Manager, Staff)
+- Automated shift generation with configurable constraints
+- Flexible shift patterns for various industries
+- Leave request management
+- Stripe subscription billing
+- RESTful API with Swagger documentation
+- Modern, responsive UI
 
-### コア機能
+## Tech Stack
 
-- **マルチテナント対応**: テナントごとに完全に分離されたデータ管理
-- **RBAC (Role-Based Access Control)**: 管理者・マネージャー・スタッフの3段階権限
-- **シフト自動生成**: ヒューリスティックアルゴリズムによる最適なシフト割当
-- **柔軟なシフトパターン**: 業種に応じたカスタマイズ可能なパターン設定
-- **制約ルール管理**: 労働基準法準拠やカスタムルールの設定
-- **休暇申請管理**: スタッフの休暇申請・承認フロー
+### Backend
+- **NestJS** - Scalable Node.js framework
+- **Prisma** - Type-safe ORM
+- **PostgreSQL** - Relational database
+- **Redis** - Caching and session management
+- **Passport + JWT** - Authentication and authorization
+- **Stripe** - Payment and subscription management
 
-### SaaS機能
+### Frontend
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first CSS
+- **shadcn/ui** - Beautiful UI components
+- **Zustand** - State management
 
-- **Stripe連携課金**: サブスクリプション管理と自動請求
-- **3つの料金プラン**: Trial / Standard / Pro
-- **プラン別制限**: 施設数・スタッフ数の上限管理
+### Infrastructure
+- **Docker** - Containerization
+- **Docker Compose** - Multi-container orchestration
 
-### UI/UX
-
-- **モダンなダッシュボード**: リアルタイムの稼働状況表示
-- **レスポンシブデザイン**: モバイル・タブレット対応
-- **直感的な操作**: shadcn/uiによる洗練されたUI
-
-## 🛠 技術スタック
-
-### バックエンド
-
-- **NestJS** - TypeScriptによるスケーラブルなNode.jsフレームワーク
-- **Prisma** - 型安全なORMでPostgreSQLと連携
-- **PostgreSQL** - リレーショナルデータベース
-- **Redis** - キャッシュ・セッション管理
-- **Passport + JWT** - 認証・認可
-- **Stripe** - 決済・サブスクリプション管理
-
-### フロントエンド
-
-- **Next.js 14** - App Routerによるモダンなフレームワーク
-- **React 18** - UIライブラリ
-- **TypeScript** - 型安全な開発
-- **Tailwind CSS** - ユーティリティファーストのCSS
-- **shadcn/ui** - 美しいコンポーネントライブラリ
-- **Zustand** - 軽量な状態管理
-
-### インフラ
-
-- **Docker Compose** - ローカル開発環境
-- **Swagger** - API自動ドキュメント生成
-
-## 🏗 アーキテクチャ
-
-### システム構成
+## Domain Model
 
 ```
-┌─────────────┐
-│  Frontend   │  Next.js (Port 3000)
-│  (Next.js)  │
-└──────┬──────┘
-       │ HTTP/REST
-       ▼
-┌─────────────┐
-│  Backend    │  NestJS (Port 3001)
-│  (NestJS)   │
-└──────┬──────┘
-       │
-       ├──────▶ PostgreSQL (Port 5432)
-       ├──────▶ Redis (Port 6379)
-       └──────▶ Stripe API
+Tenant
+├── User (Admin/Manager/Staff)
+└── Facility
+    ├── Staff
+    ├── ShiftPattern
+    ├── ShiftAssignment
+    ├── ConstraintRule
+    └── LeaveRequest
 ```
 
-### データモデル (主要エンティティ)
+### Core Entities
+- **Tenant**: Organization (nursing home, restaurant chain, etc.)
+- **User**: System user with role-based permissions
+- **Facility**: Physical location (branch, store, etc.)
+- **Staff**: Employees who work shifts
+- **ShiftPattern**: Reusable shift templates (early, day, night shifts)
+- **ShiftAssignment**: Actual shift assignments for specific dates
+- **ConstraintRule**: Rules for shift generation (max consecutive days, required skills)
+- **LeaveRequest**: Staff leave/vacation requests
 
+## Getting Started
+
+### Requirements
+- Node.js 18+
+- Docker & Docker Compose
+- (Optional) Stripe account for billing features
+
+### Quick Start with Docker
+
+The easiest way to run the entire platform:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd shift-scheduler-v3-platform
+
+# Start all services (PostgreSQL, Redis, Backend, Frontend)
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f
 ```
-Tenant (テナント)
-  ├── User (ユーザー)
-  └── Facility (施設)
-       ├── Staff (スタッフ)
-       ├── ShiftPattern (シフトパターン)
-       ├── ShiftAssignment (シフト割当)
-       ├── ConstraintRule (制約ルール)
-       └── LeaveRequest (休暇申請)
+
+Access the application:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001/api
+- **API Documentation**: http://localhost:3001/api/docs
+
+### Local Development Setup
+
+For development with hot-reload:
+
+**1. Start Database Services**
+```bash
+# Start only PostgreSQL and Redis
+npm run db:up
 ```
 
-### マルチテナント設計
+**2. Setup Backend**
+```bash
+cd backend
 
-- 全てのデータに`tenantId`を付与
-- ミドルウェアでJWTトークンから`tenantId`を抽出
-- データアクセス時に自動的にテナントでフィルタリング
+# Install dependencies
+npm install
 
-### シフト自動生成エンジン
+# Setup environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Generate Prisma client
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Seed database with sample data
+npm run db:seed
+
+# Start backend in development mode
+npm run dev
+```
+
+**3. Setup Frontend**
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Setup environment variables
+cp .env.example .env
+
+# Start frontend in development mode
+npm run dev
+```
+
+**4. Run Everything**
+
+From the project root:
+```bash
+# Run both backend and frontend concurrently
+npm run dev
+```
+
+### Environment Variables
+
+**Backend** (`backend/.env`):
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/shift_scheduler?schema=public"
+REDIS_HOST=localhost
+REDIS_PORT=6379
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=7d
+STRIPE_SECRET_KEY=sk_test_...
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+```
+
+**Frontend** (`frontend/.env`):
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+## Demo Accounts
+
+The seed data creates two sample tenants:
+
+**Nursing Home** (介護施設)
+- Email: `admin@sakura-care.com`
+- Password: `password123`
+- 10 staff members with nursing/care skills
+- 4 shift patterns (early/day/late/night)
+
+**Restaurant** (飲食店)
+- Email: `manager@bella-vita.com`
+- Password: `password123`
+- 8 staff members (chefs and waitstaff)
+- 3 shift patterns (lunch/dinner/all-day)
+
+## Example Flow: Complete Staff CRUD
+
+This is the **vertical slice** implementation - a fully working end-to-end flow.
+
+### 1. Login
+```bash
+curl -X POST http://localhost:3001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@sakura-care.com","password":"password123"}'
+
+# Response includes access_token
+```
+
+### 2. List Staff (GET /api/staff)
+```bash
+curl http://localhost:3001/api/staff \
+  -H "Authorization: Bearer <token>"
+```
+
+Frontend: Navigate to `/staff` to see the list.
+
+### 3. Get Staff Detail (GET /api/staff/:id)
+```bash
+curl http://localhost:3001/api/staff/<staff-id> \
+  -H "Authorization: Bearer <token>"
+```
+
+### 4. Create Staff (POST /api/staff)
+```bash
+curl -X POST http://localhost:3001/api/staff \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "新しいスタッフ",
+    "facilityId": "<facility-id>",
+    "employmentType": "FULL_TIME",
+    "skills": ["介護福祉士"],
+    "maxHoursPerWeek": 40
+  }'
+```
+
+### 5. Update Staff (PATCH /api/staff/:id)
+```bash
+curl -X PATCH http://localhost:3001/api/staff/<staff-id> \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"position": "主任"}'
+```
+
+### 6. Delete Staff (DELETE /api/staff/:id)
+```bash
+curl -X DELETE http://localhost:3001/api/staff/<staff-id> \
+  -H "Authorization: Bearer <token>"
+```
+
+## Scripts Reference
+
+### Root Commands
+```bash
+npm run dev          # Run backend + frontend concurrently
+npm run build        # Build both apps
+npm run start        # Start production builds
+npm run test         # Run all tests
+npm run lint         # Lint all code
+
+npm run db:migrate   # Run database migrations
+npm run db:seed      # Seed database
+npm run db:up        # Start PostgreSQL + Redis
+npm run db:down      # Stop database services
+
+npm run docker:up    # Start all services with Docker
+npm run docker:down  # Stop all Docker services
+npm run docker:build # Rebuild Docker images
+```
+
+### Backend Commands
+```bash
+cd backend
+npm run dev          # Development with hot-reload
+npm run build        # Build for production
+npm run start        # Run production build
+npm run test         # Run Jest tests
+npm run lint         # Lint code
+
+npm run db:generate  # Generate Prisma client
+npm run db:migrate   # Run migrations
+npm run db:seed      # Seed database
+npm run db:studio    # Open Prisma Studio
+```
+
+### Frontend Commands
+```bash
+cd frontend
+npm run dev          # Development server
+npm run build        # Production build
+npm run start        # Serve production build
+npm run lint         # Lint code
+```
+
+## Testing
+
+Run tests:
+```bash
+# All tests
+npm test
+
+# Backend tests only
+cd backend && npm test
+
+# Watch mode
+cd backend && npm run test:watch
+
+# Coverage
+cd backend && npm run test:cov
+```
+
+The test suite includes:
+- **Unit tests**: Services and business logic
+- **Integration tests**: Controller endpoints (todo)
+- **Algorithm tests**: Shift scheduler engine
+
+## API Documentation
+
+Interactive API documentation is available via Swagger UI:
+
+http://localhost:3001/api/docs
+
+## Architecture Highlights
+
+### Multi-Tenancy
+- Every data model includes `tenantId`
+- Middleware extracts tenant from JWT token
+- All queries automatically scoped by tenant
+- Complete data isolation between tenants
+
+### Scheduler Engine
+The shift generator is **interface-based** for easy extension:
 
 ```typescript
 interface ISchedulerEngine {
@@ -108,232 +324,106 @@ interface ISchedulerEngine {
 }
 ```
 
-- インターフェース化により、将来的にOR-Toolsなどの高度なアルゴリズムへの差し替えが容易
-- 現在はヒューリスティックエンジンを実装
-- スキル要件、希望曜日、休暇などを考慮した割当
+Current implementation: Heuristic algorithm
+Future: OR-Tools, genetic algorithms, ML-based optimization
 
-## 🚀 セットアップ
+### Error Handling
+- Global exception filter for consistent error responses
+- Response interceptor for standardized success responses
+- Validation with `class-validator` on all DTOs
 
-### 前提条件
-
-- Node.js 18以上
-- Docker & Docker Compose
-- (オプション) Stripeアカウント
-
-### 1. リポジトリのクローン
-
-```bash
-git clone <repository-url>
-cd shift-scheduler-v3-platform
-```
-
-### 2. データベース起動
-
-```bash
-docker-compose up -d
-```
-
-### 3. バックエンドセットアップ
-
-```bash
-cd backend
-
-# 依存関係のインストール
-npm install
-
-# 環境変数設定
-cp .env.example .env
-# .envファイルを編集してください
-
-# Prismaマイグレーション
-npx prisma migrate dev
-
-# Seedデータ投入
-npm run prisma:seed
-
-# バックエンド起動
-npm run start:dev
-```
-
-バックエンドは http://localhost:3001 で起動します。
-Swagger UI: http://localhost:3001/api/docs
-
-### 4. フロントエンドセットアップ
-
-```bash
-cd frontend
-
-# 依存関係のインストール
-npm install
-
-# 環境変数設定
-cp .env.example .env
-
-# フロントエンド起動
-npm run dev
-```
-
-フロントエンドは http://localhost:3000 で起動します。
-
-### 5. ログイン
-
-デモアカウントでログインできます：
-
-**介護施設**
-- Email: `admin@sakura-care.com`
-- Password: `password123`
-
-**飲食店**
-- Email: `manager@bella-vita.com`
-- Password: `password123`
-
-## 📖 使い方
-
-### シフト自動生成の流れ
-
-1. **施設登録**: 設定画面から施設を登録
-2. **スタッフ登録**: スタッフ管理画面からスタッフを登録（スキル、雇用形態、希望曜日など）
-3. **シフトパターン登録**: シフトパターン画面でパターンを定義（早番、日勤、夜勤など）
-4. **制約ルール設定**: 最大連続勤務日数、最小休憩時間などを設定
-5. **シフト自動生成**: スケジュール画面で「自動生成」ボタンをクリック
-6. **確認・調整**: 生成されたシフトを確認し、必要に応じて手動調整
-7. **公開**: スタッフに公開
-
-### API使用例
-
-```bash
-# ログイン
-curl -X POST http://localhost:3001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@sakura-care.com","password":"password123"}'
-
-# スタッフ一覧取得（要Bearer Token）
-curl http://localhost:3001/api/staff \
-  -H "Authorization: Bearer <your-token>"
-
-# シフト生成
-curl -X POST http://localhost:3001/api/scheduler/generate \
-  -H "Authorization: Bearer <your-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "facilityId": "facility-id",
-    "startDate": "2025-02-01",
-    "endDate": "2025-02-28"
-  }'
-```
-
-## 📁 ディレクトリ構成
+## Project Structure
 
 ```
 shift-scheduler-v3-platform/
-├── backend/                    # NestJSバックエンド
+├── backend/                      # NestJS backend
 │   ├── prisma/
-│   │   ├── schema.prisma      # Prismaスキーマ定義
-│   │   └── seed.ts            # Seedデータ
-│   └── src/
-│       ├── auth/              # 認証モジュール
-│       ├── tenant/            # テナント管理
-│       ├── facility/          # 施設管理
-│       ├── staff/             # スタッフ管理
-│       ├── shift-pattern/     # シフトパターン
-│       ├── shift-assignment/  # シフト割当
-│       ├── constraint-rule/   # 制約ルール
-│       ├── leave-request/     # 休暇申請
-│       ├── billing/           # Stripe課金
-│       ├── scheduler/         # シフト自動生成エンジン
-│       │   ├── interfaces/    # エンジンインターフェース
-│       │   └── engines/       # 具体的な実装
-│       ├── common/
-│       │   ├── decorators/    # カスタムデコレーター
-│       │   ├── guards/        # RBACガード
-│       │   └── middleware/    # マルチテナントミドルウェア
-│       └── prisma/            # Prismaサービス
+│   │   ├── schema.prisma        # Database schema
+│   │   └── seed.ts              # Sample data
+│   ├── src/
+│   │   ├── auth/                # Authentication
+│   │   ├── common/              # Shared utilities
+│   │   │   ├── filters/         # Exception filters
+│   │   │   ├── interceptors/    # Response interceptor
+│   │   │   ├── guards/          # RBAC guards
+│   │   │   └── decorators/      # Custom decorators
+│   │   ├── facility/            # Facility CRUD
+│   │   ├── staff/               # Staff CRUD ⭐ Vertical slice
+│   │   ├── shift-pattern/       # Shift patterns
+│   │   ├── shift-assignment/    # Shift assignments
+│   │   ├── scheduler/           # Auto-generation engine
+│   │   ├── billing/             # Stripe integration
+│   │   └── ...
+│   ├── Dockerfile
+│   └── jest.config.js
 │
-├── frontend/                  # Next.jsフロントエンド
+├── frontend/                    # Next.js frontend
 │   ├── app/
-│   │   ├── (dashboard)/       # ダッシュボードグループ
-│   │   │   ├── dashboard/     # ダッシュボード
-│   │   │   ├── staff/         # スタッフ管理
-│   │   │   ├── patterns/      # パターン管理
-│   │   │   ├── schedule/      # スケジュール
-│   │   │   ├── billing/       # 課金管理
-│   │   │   └── settings/      # 設定
-│   │   └── login/             # ログイン画面
+│   │   ├── (dashboard)/         # Authenticated routes
+│   │   │   ├── dashboard/       # Dashboard
+│   │   │   ├── staff/           # Staff management ⭐
+│   │   │   ├── patterns/        # Shift patterns
+│   │   │   ├── schedule/        # Schedule view
+│   │   │   └── ...
+│   │   └── login/               # Login page
 │   ├── components/
-│   │   ├── ui/                # shadcn/uiコンポーネント
-│   │   └── layout/            # レイアウトコンポーネント
+│   │   ├── ui/                  # shadcn/ui components
+│   │   └── layout/              # Layout components
 │   └── lib/
-│       ├── api.ts             # API クライアント
-│       └── utils.ts           # ユーティリティ
+│       ├── api.ts               # API client
+│       └── utils.ts
 │
-└── docker-compose.yml         # PostgreSQL & Redis
+└── docker-compose.yml           # Full stack orchestration
 ```
 
-## 🔄 v2からの移行
+## Future Extensions
 
-### 主な変更点
+### Phase 3 Enhancements
+- [ ] Advanced scheduler with OR-Tools
+- [ ] Real-time notifications (WebSocket)
+- [ ] Mobile app (React Native)
+- [ ] CSV import/export
+- [ ] Advanced analytics dashboard
+- [ ] Multi-language support (i18n)
+- [ ] Email notifications (SendGrid)
+- [ ] Audit logs
+- [ ] API rate limiting per tenant
+- [ ] Tenant branding customization
 
-| v2 (welfare-shift-scheduler-core) | v3 (shift-scheduler-v3-platform) |
-|-----------------------------------|----------------------------------|
-| シングルテナント                     | マルチテナント対応                  |
-| ローカルアプリ                       | SaaSプラットフォーム                |
-| 介護施設特化                        | 汎用的な業種対応                    |
-| スタンドアロン                       | Stripe課金統合                     |
+### Integrations
+- [ ] Google Calendar sync
+- [ ] Slack notifications
+- [ ] Time tracking integration
+- [ ] Payroll system export
 
-### 移行パス (高レベル)
+## Migration from v2
 
-1. **データ移行**
-   - v2の施設データを新しいTenantとして登録
-   - スタッフデータをマイグレーション（新しいスキーマに合わせて変換）
-   - シフトパターンを再定義
+If migrating from `welfare-shift-scheduler-core`:
 
-2. **アルゴリズム統合**
-   - v2の最適化エンジン(`welfare-shift-scheduler-core`)を`ISchedulerEngine`インターフェースに準拠するよう実装
-   - `backend/src/scheduler/engines/`に新しいエンジンを追加
-   - エンジンの切り替えは設定で制御
+1. **Data Migration**:
+   - Export v2 data to JSON
+   - Create Tenant for organization
+   - Map facilities, staff, and shifts to new schema
 
-3. **移行スクリプト例**
-   ```typescript
-   // backend/src/migration/migrate-v2.ts
-   async function migrateFromV2(v2Data: V2Data) {
-     // 1. Tenant作成
-     const tenant = await prisma.tenant.create({...});
+2. **Algorithm Integration**:
+   - Implement v2 algorithm as `ISchedulerEngine`
+   - Place in `backend/src/scheduler/engines/`
+   - Configure engine selection in settings
 
-     // 2. Facility作成
-     const facility = await prisma.facility.create({
-       tenantId: tenant.id,
-       ...
-     });
+3. **Feature Parity**:
+   - All v2 constraint rules are supported
+   - Skill requirements mapped to new system
+   - Historical data can be imported
 
-     // 3. Staff移行
-     // 4. ShiftPattern移行
-     // 5. 既存シフト履歴の移行（オプション）
-   }
-   ```
-
-## 🧪 テスト
-
-```bash
-# バックエンドのテスト
-cd backend
-npm run test
-
-# フロントエンドのテスト
-cd frontend
-npm run test
-```
-
-## 📝 ライセンス
+## License
 
 MIT
 
-## 🤝 コントリビューション
+## Support
 
-プルリクエストを歓迎します。大きな変更の場合は、まずissueを開いて変更内容を議論してください。
-
-## 📮 サポート
-
-問題や質問がある場合は、GitHubのissueを開いてください。
+For issues or questions:
+- GitHub Issues: [Open an issue](https://github.com/...)
+- Documentation: Check `/api/docs` for API reference
 
 ---
 

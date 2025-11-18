@@ -8,12 +8,19 @@
     "frontend"
   ],
   "scripts": {
-    "backend": "npm run start:dev --workspace=backend",
-    "frontend": "npm run dev --workspace=frontend",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "db:up": "docker-compose up -d",
+    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "start": "concurrently \"npm run start --workspace=backend\" \"npm run start --workspace=frontend\"",
+    "test": "npm run test --workspace=backend && npm run test --workspace=frontend",
+    "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend",
+    "db:push": "npm run db:push --workspace=backend",
+    "db:up": "docker-compose up -d postgres redis",
     "db:down": "docker-compose down",
-    "db:reset": "npm run db:down && npm run db:up"
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
